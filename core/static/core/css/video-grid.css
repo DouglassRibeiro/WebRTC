@@ -1,0 +1,19 @@
+#meuVideo, #videoRemoto {
+    width: 100%;
+    max-width: 600px;        /* Limita o tamanho para não estourar a tela */
+    aspect-ratio: 4 / 3;     /* Mantém a proporção de vídeo padrão */
+    background-color: black;
+    border-radius: 25px;
+    border: 5px rgb(0, 174, 255) solid;
+    object-fit: cover;       /* Faz o vídeo preencher o quadrado sem distorcer */
+}
+
+.video-grid {
+    display: flex;
+    justify-content: center; /* Centraliza horizontalmente */
+    align-items: center;     /* Centraliza verticalmente */
+    gap: 20px;               /* Espaço entre os vídeos */
+    flex-wrap: wrap;         /* Se a tela for pequena, o vídeo de baixo desce em vez de quebrar o layout */
+    width: 100%;
+    margin-bottom: 20px;
+}
