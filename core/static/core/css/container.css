@@ -30,7 +30,7 @@
     border: 5px rgb(0, 174, 255) solid;
     border-radius: 15px;
     transition: 300ms;
-    color: rgb(0, 174, 255);
+    color: rgb(0, 112, 164);
 }
 
 #btnCamera:hover, #btnMirrorCamera:hover {

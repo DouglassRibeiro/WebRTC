@@ -89,7 +89,28 @@ class CameraHandler {
             this.btnMirrorCamera.innerText = 'Espelhar Foto';
         }
     }
+    
 }
 
 // Para usar, basta instanciar a classe no final do arquivo:
 const minhaCamera = new CameraHandler();
+
+
+// camera.js ou Console do F12
+const socket = new WebSocket('ws://' + window.location.host + '/ws/video/');
+
+socket.onopen = function(e) {
+    console.log("✅ Conectado ao servidor Django Channels!");
+    socket.send(JSON.stringify({ // JSON em maiúsculo
+        'message': 'Olá Django, estou pronto para a chamada!'
+    }));
+};
+
+socket.onmessage = function(e) {
+    const data = JSON.parse(e.data); // JSON.parse em vez de json.loads
+    console.log("📩 Mensagem do servidor:", data.response);
+};
+
+socket.onerror = function(e) {
+    console.error("❌ Erro no WebSocket:", e);
+};

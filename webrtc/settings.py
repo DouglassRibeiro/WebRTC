@@ -26,18 +26,20 @@ SECRET_KEY = 'django-insecure-jeg69regblg0r)&cut+rj%fy7wi6usx8mdntdg8b$b)zo@2@cd
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '*']
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
     'core',
 ]
 
@@ -126,3 +128,5 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
+
+ASGI_APPLICATION = 'webrtc.asgi.application'
