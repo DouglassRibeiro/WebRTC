@@ -1,3 +1,4 @@
+# core/consumers.py
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 
@@ -5,42 +6,43 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_group_name = 'sala_geral'
 
-        # 1. Entra no Grupo (Sala)
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
         )
 
         await self.accept()
-        print(f"✅ Usuário {self.channel_name} entrou na sala {self.room_group_name}")
+        print(f"✅ Conectado: {self.channel_name}")
 
     async def disconnect(self, close_code):
-        # 2. Sai do Grupo ao fechar a aba
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
         )
-        print("❌ Usuário desconectado.")
+        print(f"❌ Desconectado: {self.channel_name}")
 
-    # 3. Recebe mensagem do JavaScript e envia para o Grupo
+    # Recebe do WebSocket (Navegador) -> Envia para o Grupo (Django)
     async def receive(self, text_data):
         data = json.loads(text_data)
-        message = data['message']
         
-        # Envia para TODOS no grupo (broadcast)
+        # O PULO DO GATO:
+        # Não tentamos ler 'message' ou 'offer'. Pegamos o pacote inteiro ('data')
+        # e enviamos para o grupo, anexando o ID de quem mandou ('sender_channel_name')
+        
         await self.channel_layer.group_send(
             self.room_group_name,
             {
-                'type': 'chat_message', # Chama o método abaixo
-                'message': message
+                'type': 'signal_message', # Nome da função abaixo
+                'data': data,             # O payload completo (Offer, Answer, etc)
+                'sender_channel_name': self.channel_name # Quem enviou
             }
         )
 
-    # 4. Método auxiliar para enviar a mensagem de volta ao WebSocket
-    async def chat_message(self, event):
-        message = event['message']
+    # Recebe do Grupo (Django) -> Envia de volta para o WebSocket (Navegador)
+    async def signal_message(self, event):
+        # Ignora a mensagem se for eu mesmo quem mandou (Evita loop infinito)
+        if self.channel_name == event['sender_channel_name']:
+            return
 
-        # Envia para o navegador
-        await self.send(text_data=json.dumps({
-            'response': message
-        }))
+        # Envia apenas os dados úteis para o navegador
+        await self.send(text_data=json.dumps(event['data']))

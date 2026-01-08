@@ -1,117 +1,104 @@
+// Importa a classe que acabamos de criar
+import { WebRTCConnection } from './network.js';
+
 class CameraHandler {
     constructor() {
-        // 1. Estado e Seletores (Atributos da classe)
         this.video = document.getElementById('meuVideo');
+        this.videoRemoto = document.getElementById('videoRemoto');
+        
+        // Botões
         this.btnCamera = document.getElementById('btnCamera');
-        this.btnMirrorCamera = document.getElementById('btnMirrorCamera');
+        this.btnCall = document.getElementById('btnMirrorCamera'); // Vamos reusar o botão "Espelhar" para "Ligar"
         
         this.streamLocal = null;
-        this.mirrored = false;
-        this.cameraDesiredByUser = false;
+        this.rtc = null; // Instância da conexão WebRTC
+        this.socket = null;
 
-        // 2. Inicializar os "Ouvintes" de eventos
+        this.initSocket();
         this.initEvents();
     }
 
-    initEvents() {
-        // Usamos Arrow Functions ( () => ) para garantir que o 'this' 
-        // aponte para a classe e não para o botão clicado.
-        this.btnCamera.addEventListener('click', () => this.manageCamera());
-        this.btnMirrorCamera.addEventListener('click', () => this.toggleMirror());
-        
-        document.addEventListener('visibilitychange', () => this.handleVisibility());
+    initSocket() {
+        this.socket = new WebSocket('ws://' + window.location.host + '/ws/video/');
+
+        this.socket.onopen = () => {
+            console.log("✅ WebSocket Conectado!");
+            // Expõe para debug global se precisar
+            window.socket = this.socket; 
+        };
+
+        this.socket.onmessage = async (e) => {
+            const data = JSON.parse(e.data);
+            
+            // Se não tiver conexão WebRTC iniciada, não faz sentido processar mensagens WebRTC
+            if (!this.rtc && (data.type === 'offer')) {
+                // Se receber uma oferta e não tiver RTC, inicia um como "Passivo" (Receiver)
+                await this.setupWebRTC(); 
+            }
+
+            if (!this.rtc) return; // Segurança
+
+            switch(data.type) {
+                case 'offer':
+                    console.log("📩 Recebi Oferta. Gerando Resposta...");
+                    await this.rtc.createAnswer(data.offer);
+                    break;
+                
+                case 'answer':
+                    console.log("📩 Recebi Resposta. Conectando...");
+                    await this.rtc.handleAnswer(data.answer);
+                    break;
+                
+                case 'candidate':
+                    // Ignora candidatos vazios ou repetidos
+                    if(data.candidate) { 
+                        await this.rtc.handleCandidate(data.candidate); 
+                    }
+                    break;
+            }
+        };
     }
 
-    async manageCamera() {
-        if (this.streamLocal) {
-            this.cameraDesiredByUser = false;
-            this.stopCamera();
-        } else {
-            this.cameraDesiredByUser = true;
+    initEvents() {
+        // Botão 1: Apenas liga a câmera local
+        this.btnCamera.addEventListener('click', async () => {
             await this.startCamera();
-        }
+        });
+
+        // Botão 2: Inicia a chamada (O antigo botão Espelhar)
+        this.btnCall.innerText = "📞 Iniciar Chamada";
+        this.btnCall.addEventListener('click', async () => {
+            if (!this.streamLocal) {
+                alert("Ligue a câmera primeiro!");
+                return;
+            }
+            console.log("Iniciando chamada...");
+            await this.setupWebRTC();
+            await this.rtc.createOffer();
+        });
+
     }
 
     async startCamera() {
         if (this.streamLocal) return;
-
         try {
-            const constraints = {
-                video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
-                audio: false
-            };
-
-            this.streamLocal = await navigator.mediaDevices.getUserMedia(constraints);
+            this.streamLocal = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             this.video.srcObject = this.streamLocal;
-
-            this.btnCamera.innerText = 'Desligar Câmera';
-            this.btnCamera.classList.add('ativo');
-            
-            // Aplicar o espelhamento inicial
-            this.updateMirrorStyle();
+            this.btnCamera.innerText = 'Câmera Ativa';
+            this.btnCamera.disabled = true; // Trava para não desligar por engano
         } catch (error) {
-            console.error('Erro ao abrir a câmera:', error);
+            console.error('Erro na câmera:', error);
         }
     }
 
-    stopCamera() {
-        if (!this.streamLocal) return;
-
-        this.streamLocal.getTracks().forEach(track => track.stop());
-        this.video.srcObject = null;
-        this.streamLocal = null;
-
-        this.btnCamera.innerText = 'Ligar Câmera';
-        this.btnCamera.classList.remove('ativo');
+    async setupWebRTC() {
+        // Cria a instância de rede passando os 3 ingredientes principais:
+        // 1. Seu vídeo (Stream)
+        // 2. Onde mostrar o vídeo do amigo (Elemento HTML)
+        // 3. O telefone para falar com ele (Socket)
+        this.rtc = new WebRTCConnection(this.streamLocal, this.videoRemoto, this.socket);
     }
-
-    handleVisibility() {
-        if (document.visibilityState === 'hidden') {
-            console.log("Aba escondida: Suspendendo vídeo.");
-            this.stopCamera();
-        } else if (this.cameraDesiredByUser) {
-            console.log("Aba visível: Retomando vídeo.");
-            this.startCamera();
-        }
-    }
-
-    toggleMirror() {
-        this.mirrored = !this.mirrored;
-        this.updateMirrorStyle();
-    }
-
-    updateMirrorStyle() {
-        if (this.mirrored) {
-            this.video.style.transform = 'scaleX(1)';
-            this.btnMirrorCamera.innerText = 'Foto Normal';
-        } else {
-            this.video.style.transform = 'scaleX(-1)';
-            this.btnMirrorCamera.innerText = 'Espelhar Foto';
-        }
-    }
-    
 }
 
-// Para usar, basta instanciar a classe no final do arquivo:
-const minhaCamera = new CameraHandler();
-
-
-// camera.js ou Console do F12
-const socket = new WebSocket('ws://' + window.location.host + '/ws/video/');
-
-socket.onopen = function(e) {
-    console.log("✅ Conectado ao servidor Django Channels!");
-    socket.send(JSON.stringify({ // JSON em maiúsculo
-        'message': 'Olá Django, estou pronto para a chamada!'
-    }));
-};
-
-socket.onmessage = function(e) {
-    const data = JSON.parse(e.data); // JSON.parse em vez de json.loads
-    console.log("📩 Mensagem do servidor:", data.response);
-};
-
-socket.onerror = function(e) {
-    console.error("❌ Erro no WebSocket:", e);
-};
-
+// Inicializa tudo
+const app = new CameraHandler();
