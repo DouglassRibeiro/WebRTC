@@ -114,3 +114,4 @@ socket.onmessage = function(e) {
 socket.onerror = function(e) {
     console.error("❌ Erro no WebSocket:", e);
 };
+

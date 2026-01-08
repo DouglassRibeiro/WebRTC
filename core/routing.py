@@ -1,8 +1,10 @@
 # core/routing.py
-from django.urls import path
+from django.urls import re_path # Use re_path, ele é mais robusto para WebSockets
 from . import consumers
 
 websocket_urlpatterns = [
-    # Usando path normal, sem regex complexo
-    path('ws/video/', consumers.VideoCallConsumer.as_asgi()),
+    # O 'r' antes da string indica Regex
+    # O '^' significa: "Começa exatamente com..."
+    # O '$' significa: "Termina exatamente aqui"
+    re_path(r'^ws/video/$', consumers.VideoCallConsumer.as_asgi()),
 ]

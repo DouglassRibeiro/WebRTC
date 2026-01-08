@@ -130,3 +130,9 @@ STATICFILES_DIRS = [
 ]
 
 ASGI_APPLICATION = 'webrtc.asgi.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
