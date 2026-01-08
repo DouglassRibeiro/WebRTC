@@ -25,33 +25,47 @@ export class WebRTCConnection {
             }
         };
 
-        // 2. Quando o vídeo chega (VERSÃO BLINDADA)
+        // 2. Lógica Anti-Tela Preta (Edge/Chrome)
         this.peerConnection.ontrack = (event) => {
-            console.log("🎥 RECEBIDO! Track Kind:", event.track.kind);
+            console.log("🎥 Stream remoto chegou! Processando...");
 
-            // Verificação de segurança: O elemento HTML existe?
-            if (!this.videoRemoto) {
-                console.error("❌ ERRO CRÍTICO: O elemento HTML 'videoRemoto' não foi encontrado!");
-                return;
-            }
-
-            // FALLBACK: Se o navegador não agrupar o stream, criamos um manualmente
-            // Isso resolve o problema de 'streams[0]' ser undefined
+            // Fallback para garantir que pegamos o stream correto
             const incomingStream = (event.streams && event.streams[0])
                 ? event.streams[0]
                 : new MediaStream([event.track]);
 
-            console.log("🔗 Conectando stream ao elemento de vídeo...");
             this.videoRemoto.srcObject = incomingStream;
 
-            // Tentativa de Play com tratamento de erro detalhado
-            this.videoRemoto.play()
-                .then(() => console.log("▶️ SUCESSO TOTAL: O vídeo está rodando!"))
-                .catch(e => {
-                    console.error("⚠️ O navegador bloqueou o Autoplay:", e);
-                    console.log("💡 Dica: Verifique se o <video> tem o atributo 'muted'.");
-                });
+
+            // ESTRATÉGIA: Começar Mudo -> Dar Play -> Tentar Desmutar
+            this.videoRemoto.muted = true;
+
+            const attemptPlay = async () => {
+
+                try {
+                    await this.videoRemoto.play();
+                    console.log("▶️ Vídeo rodando (Mudo)!");
+
+                    // Tenta ligar o som
+                    this.videoRemoto.muted = false;
+                    console.log("🔊 Som ativado automaticamente!");
+                } catch (err) {
+                    console.warn("⚠️ Bloqueio de Autoplay:", err);
+                    // Se der erro, garante que fica mudo e tenta de novo
+                    this.videoRemoto.muted = true;
+                    this.videoRemoto.play().catch(e => console.error("❌ Falha total:", e));
+                }
+            };
+
+            // Tenta rodar imediatamente
+            attemptPlay();
+
+            // Garantia extra: Se o navegador demorar para carregar os metadados
+            this.videoRemoto.onloadedmetadata = () => {
+                attemptPlay();
+            };
         };
+
     }
 
     addLocalTracks() {
@@ -61,7 +75,6 @@ export class WebRTCConnection {
     }
 
     // --- SINALIZAÇÃO ---
-
     async createOffer() {
         const offer = await this.peerConnection.createOffer();
         await this.peerConnection.setLocalDescription(offer);
@@ -84,8 +97,6 @@ export class WebRTCConnection {
     async handleCandidate(candidate) {
         try {
             await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {
-            console.error("Erro ICE:", e);
-        }
+        } catch (e) { console.error("Erro ICE:", e); }
     }
 }
