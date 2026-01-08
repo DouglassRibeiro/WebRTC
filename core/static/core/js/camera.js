@@ -19,38 +19,40 @@ class CameraHandler {
     }
 
     initSocket() {
-        this.socket = new WebSocket('ws://' + window.location.host + '/ws/video/');
+        // Detecta se estamos usando HTTPS (Seguro) ou HTTP (Local)
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        
+        // Cria a URL completa com o protocolo correto
+        const wsUrl = protocol + window.location.host + '/ws/video/';
+
+        console.log("Tentando conectar em:", wsUrl); // Log para debug
+
+        this.socket = new WebSocket(wsUrl);
 
         this.socket.onopen = () => {
             console.log("✅ WebSocket Conectado!");
-            // Expõe para debug global se precisar
             window.socket = this.socket; 
         };
 
+        // ... o resto do código do onmessage continua igual ...
         this.socket.onmessage = async (e) => {
+            // ... (mantenha seu código original de onmessage aqui)
             const data = JSON.parse(e.data);
             
-            // Se não tiver conexão WebRTC iniciada, não faz sentido processar mensagens WebRTC
             if (!this.rtc && (data.type === 'offer')) {
-                // Se receber uma oferta e não tiver RTC, inicia um como "Passivo" (Receiver)
                 await this.setupWebRTC(); 
             }
 
-            if (!this.rtc) return; // Segurança
+            if (!this.rtc) return;
 
             switch(data.type) {
                 case 'offer':
-                    console.log("📩 Recebi Oferta. Gerando Resposta...");
                     await this.rtc.createAnswer(data.offer);
                     break;
-                
                 case 'answer':
-                    console.log("📩 Recebi Resposta. Conectando...");
                     await this.rtc.handleAnswer(data.answer);
                     break;
-                
                 case 'candidate':
-                    // Ignora candidatos vazios ou repetidos
                     if(data.candidate) { 
                         await this.rtc.handleCandidate(data.candidate); 
                     }
