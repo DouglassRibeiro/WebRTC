@@ -127,8 +127,10 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
+    BASE_DIR / "static",
 ]
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
@@ -142,4 +144,5 @@ CHANNEL_LAYERS = {
 
 CSRF_TRUSTED_ORIGINS = [
     'https://webrtc-testing-bg7w.onrender.com',
+    'https://*.onrender.com',
 ]
