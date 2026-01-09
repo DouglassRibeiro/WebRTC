@@ -26,44 +26,38 @@ export class WebRTCConnection {
         };
 
         // 2. Lógica Anti-Tela Preta (Edge/Chrome)
+        // 2. Correção do "Atropelamento" (Fix para Edge/Chrome)
+        // Substitua APENAS o this.peerConnection.ontrack = ...
         this.peerConnection.ontrack = (event) => {
-            console.log("🎥 Stream remoto chegou! Processando...");
+            console.log("🎥 Track recebida:", event.track.kind);
+            
+            const incomingStream = (event.streams && event.streams[0]) 
+                                    ? event.streams[0] 
+                                    : new MediaStream([event.track]);
 
-            // Fallback para garantir que pegamos o stream correto
-            const incomingStream = (event.streams && event.streams[0])
-                ? event.streams[0]
-                : new MediaStream([event.track]);
+            if (this.videoRemoto.srcObject !== incomingStream) {
+                this.videoRemoto.srcObject = incomingStream;
+                console.log("🔗 Stream vinculado!");
+            }
 
-            this.videoRemoto.srcObject = incomingStream;
-
-
-            // ESTRATÉGIA: Começar Mudo -> Dar Play -> Tentar Desmutar
+            // Garante Mudo para o navegador deixar tocar
             this.videoRemoto.muted = true;
-
-            const attemptPlay = async () => {
-
-                try {
-                    await this.videoRemoto.play();
-                    console.log("▶️ Vídeo rodando (Mudo)!");
-
-                    // Tenta ligar o som
-                    this.videoRemoto.muted = false;
-                    console.log("🔊 Som ativado automaticamente!");
-                } catch (err) {
-                    console.warn("⚠️ Bloqueio de Autoplay:", err);
-                    // Se der erro, garante que fica mudo e tenta de novo
-                    this.videoRemoto.muted = true;
-                    this.videoRemoto.play().catch(e => console.error("❌ Falha total:", e));
-                }
-            };
-
-            // Tenta rodar imediatamente
-            attemptPlay();
-
-            // Garantia extra: Se o navegador demorar para carregar os metadados
-            this.videoRemoto.onloadedmetadata = () => {
-                attemptPlay();
-            };
+            
+            // Tenta dar Play e trata os erros comuns do Edge/Chrome
+            this.videoRemoto.play()
+                .then(() => {
+                    console.log("▶️ Play iniciado!");
+                    // Tenta ligar o som após 1 segundo
+                    setTimeout(() => { this.videoRemoto.muted = false; }, 1000);
+                })
+                .catch(err => {
+                    // Ignora o erro de "Interrompido" (Race Condition)
+                    if (err.name === "AbortError") {
+                        console.log("⚠️ Play interrompido (Isso é normal, o vídeo vai tocar na próxima tentativa)");
+                    } else {
+                        console.error("❌ Erro real no Play:", err);
+                    }
+                });
         };
 
     }
